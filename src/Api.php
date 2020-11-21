@@ -93,7 +93,7 @@ class Api
         try {
             $response = $this->_client->get($url, $option);
         } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return $this->_error('get token failed, [' . $e->getCode() . '] ' . $e->getMessage());
+            return $this->_error('search failed, [' . $e->getCode() . '] ' . $e->getMessage());
         }
         $result = $response->getBody()->getContents();
         $data = json_decode($result, true);
@@ -135,7 +135,12 @@ class Api
             $response = $this->_client->get($url, $option);
             $result = $response->getBody()->getContents();
             $data = json_decode($result, true);
-            // 粉絲數
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            return $this->_error('get singer info failed, [' . $e->getCode() . '] ' . $e->getMessage());
+        }
+
+        // 粉絲數
+        try {
             $url = $data['url'];
             $response = $this->_client->get($url);
             $html = $response->getBody()->getContents();
@@ -145,8 +150,8 @@ class Api
             $text = $crawler->filterXPath($xpath)->last()->text();
             $text = str_replace('粉絲：', '', $text);
             $data['followers'] = trim($text);
-        } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return $this->_error('get token failed, [' . $e->getCode() . '] ' . $e->getMessage());
+        } catch (\Exception $e) {
+            $data['followers'] = 0;
         }
         return $this->_success($data);
     }
@@ -163,7 +168,7 @@ class Api
         try {
             $response = $this->_client->get($url, $option);
         } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return $this->_error('get token failed, [' . $e->getCode() . '] ' . $e->getMessage());
+            return $this->_error('get singer albums failed, [' . $e->getCode() . '] ' . $e->getMessage());
         }
         $result = $response->getBody()->getContents();
         $data = json_decode($result, true);
@@ -186,7 +191,7 @@ class Api
         try {
             $response = $this->_client->get($url, $option);
         } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return $this->_error('get token failed, [' . $e->getCode() . '] ' . $e->getMessage());
+            return $this->_error('get singer top songs failed, [' . $e->getCode() . '] ' . $e->getMessage());
         }
         $result = $response->getBody()->getContents();
         $data = json_decode($result, true);
@@ -206,7 +211,7 @@ class Api
         try {
             $response = $this->_client->get($url, $option);
         } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return $this->_error('get token failed, [' . $e->getCode() . '] ' . $e->getMessage());
+            return $this->_error('get album songs failed, [' . $e->getCode() . '] ' . $e->getMessage());
         }
         $result = $response->getBody()->getContents();
         $data = json_decode($result, true);
@@ -229,7 +234,7 @@ class Api
         try {
             $response = $this->_client->get($url, $option);
         } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return $this->_error('get token failed, [' . $e->getCode() . '] ' . $e->getMessage());
+            return $this->_error('get songs info failed, [' . $e->getCode() . '] ' . $e->getMessage());
         }
         $result = $response->getBody()->getContents();
         $data = json_decode($result, true);
@@ -248,7 +253,7 @@ class Api
         try {
             $response = $this->_client->get($url, $option);
         } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return $this->_error('get token failed, [' . $e->getCode() . '] ' . $e->getMessage());
+            return $this->_error('get charts failed, [' . $e->getCode() . '] ' . $e->getMessage());
         }
         $result = $response->getBody()->getContents();
         $data = json_decode($result, true);
@@ -268,7 +273,7 @@ class Api
         try {
             $response = $this->_client->get($url, $option);
         } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return $this->_error('get token failed, [' . $e->getCode() . '] ' . $e->getMessage());
+            return $this->_error('get chart songs failed, [' . $e->getCode() . '] ' . $e->getMessage());
         }
         $result = $response->getBody()->getContents();
         $data = json_decode($result, true);
