@@ -4,22 +4,26 @@ namespace kkboxMusic;
 
 use GuzzleHttp\Client;
 use kkboxMusic\Storage;
+use Symfony\Component\DomCrawler\Crawler;
 
-class Api {
+class Api
+{
 
     protected $_client;
 
     protected $_clientId;
     protected $_clientSecret;
 
-    protected $_proxy;
-
     public function __construct($clientId, $clientSecret, $proxy = '')
     {
-        $this->_client = new Client();
         $this->_clientId = $clientId;
         $this->_clientSecret = $clientSecret;
-        $this->_proxy = $proxy;
+
+        $config = [];
+        if ($proxy) {
+            $config['proxy'] = $proxy;
+        }
+        $this->_client = new Client($config);
     }
 
     /**
@@ -47,16 +51,13 @@ class Api {
                 'client_secret' => $this->_clientSecret
             ];
         }
-        
+
         $url = 'https://account.kkbox.com/oauth2/token';
         $option = ['form_params' => $params];
-        if ($this->_proxy) {
-            $option['proxy'] = $this->_proxy;
-        }
         try {
             $response = $this->_client->post($url, $option);
         } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return $this->_error('get token failed, [' . $response->getStatusCode().']'. $e->getMessage(), false);
+            return $this->_error('get token failed, [' . $response->getStatusCode() . ']' . $e->getMessage(), false);
         }
         $result = $response->getBody()->getContents();
         $result = json_decode($result, true);
@@ -64,7 +65,6 @@ class Api {
         $expires = $result['expires_in'] + time();
         Storage::init()->set($dbName, $this->_clientId, ['token' => $token, 'expires' => $expires]);
         return $token;
-        
     }
 
     /**
@@ -87,16 +87,13 @@ class Api {
             'offset' => ($page - 1) * $pageSize,
             'limit' => $pageSize
         ];
-        $url .= '?'.http_build_query($param);
+        $url .= '?' . http_build_query($param);
 
-        $option = ['headers' => ['authorization' => 'Bearer '. $this->_getToken()]];
-        if ($this->_proxy) {
-            $option['proxy'] = $this->_proxy;
-        }
+        $option = ['headers' => ['authorization' => 'Bearer ' . $this->_getToken()]];
         try {
             $response = $this->_client->get($url, $option);
         } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return $this->_error('get token failed, [' . $e->getCode().'] '. $e->getMessage());
+            return $this->_error('get token failed, [' . $e->getCode() . '] ' . $e->getMessage());
         }
         $result = $response->getBody()->getContents();
         $data = json_decode($result, true);
@@ -120,7 +117,7 @@ class Api {
      * @param integer $pageSize 每页条数，默认15
      * @return array
      */
-    public function searchSongs($keyword, $page = 1, $pageSize = 15) 
+    public function searchSongs($keyword, $page = 1, $pageSize = 15)
     {
         return $this->search($keyword, 'track', $page, $pageSize);
     }
@@ -132,19 +129,25 @@ class Api {
      */
     public function getSingerInfo($singerId)
     {
-        $url = 'https://api.kkbox.com/v1.1/artists/'.$singerId.'?territory=HK';
-        $option = ['headers' => ['authorization' => 'Bearer '. $this->_getToken()]];
-        if ($this->_proxy) {
-            $option['proxy'] = $this->_proxy;
-        }
+        $url = 'https://api.kkbox.com/v1.1/artists/' . $singerId . '?territory=HK';
+        $option = ['headers' => ['authorization' => 'Bearer ' . $this->_getToken()]];
         try {
             $response = $this->_client->get($url, $option);
+            $result = $response->getBody()->getContents();
+            $data = json_decode($result, true);
+            // 粉絲數
+            $url = $data['url'];
+            $response = $this->_client->get($url);
+            $html = $response->getBody()->getContents();
+            $crawler = new Crawler($html);
+            $converter = new \Symfony\Component\CssSelector\CssSelectorConverter($html);
+            $xpath = $converter->toXPath('body > div.masthead > div.container > div.row > div.col-8 > div.artist-info > div.artist-statistic > ul > li');
+            $text = $crawler->filterXPath($xpath)->last()->text();
+            $text = str_replace('粉絲：', '', $text);
+            $data['followers'] = trim($text);
         } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return $this->_error('get token failed, [' . $e->getCode().'] '. $e->getMessage());
+            return $this->_error('get token failed, [' . $e->getCode() . '] ' . $e->getMessage());
         }
-        $result = $response->getBody()->getContents();
-        $data = json_decode($result, true);
-        // TODO followers
         return $this->_success($data);
     }
 
@@ -155,15 +158,12 @@ class Api {
      */
     public function getSingerAlbums($singerId)
     {
-        $url = 'https://api.kkbox.com/v1.1/artists/'.$singerId.'/albums?territory=HK&limit=500'; // limit最大500
-        $option = ['headers' => ['authorization' => 'Bearer '. $this->_getToken()]];
-        if ($this->_proxy) {
-            $option['proxy'] = $this->_proxy;
-        }
+        $url = 'https://api.kkbox.com/v1.1/artists/' . $singerId . '/albums?territory=HK&limit=500'; // limit最大500
+        $option = ['headers' => ['authorization' => 'Bearer ' . $this->_getToken()]];
         try {
             $response = $this->_client->get($url, $option);
         } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return $this->_error('get token failed, [' . $e->getCode().'] '. $e->getMessage());
+            return $this->_error('get token failed, [' . $e->getCode() . '] ' . $e->getMessage());
         }
         $result = $response->getBody()->getContents();
         $data = json_decode($result, true);
@@ -181,15 +181,12 @@ class Api {
      */
     public function getSingerTopSongs($singerId)
     {
-        $url = 'https://api.kkbox.com/v1.1/artists/'.$singerId.'/top-tracks?territory=HK&limit=500'; // limit最大500
-        $option = ['headers' => ['authorization' => 'Bearer '. $this->_getToken()]];
-        if ($this->_proxy) {
-            $option['proxy'] = $this->_proxy;
-        }
+        $url = 'https://api.kkbox.com/v1.1/artists/' . $singerId . '/top-tracks?territory=HK&limit=500'; // limit最大500
+        $option = ['headers' => ['authorization' => 'Bearer ' . $this->_getToken()]];
         try {
             $response = $this->_client->get($url, $option);
         } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return $this->_error('get token failed, [' . $e->getCode().'] '. $e->getMessage());
+            return $this->_error('get token failed, [' . $e->getCode() . '] ' . $e->getMessage());
         }
         $result = $response->getBody()->getContents();
         $data = json_decode($result, true);
@@ -204,15 +201,12 @@ class Api {
      */
     public function getAlbumSongs($albumId)
     {
-        $url = 'https://api.kkbox.com/v1.1/albums/'.$albumId.'/tracks?territory=HK&limit=500'; // limit最大500
-        $option = ['headers' => ['authorization' => 'Bearer '. $this->_getToken()]];
-        if ($this->_proxy) {
-            $option['proxy'] = $this->_proxy;
-        }
+        $url = 'https://api.kkbox.com/v1.1/albums/' . $albumId . '/tracks?territory=HK&limit=500'; // limit最大500
+        $option = ['headers' => ['authorization' => 'Bearer ' . $this->_getToken()]];
         try {
             $response = $this->_client->get($url, $option);
         } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return $this->_error('get token failed, [' . $e->getCode().'] '. $e->getMessage());
+            return $this->_error('get token failed, [' . $e->getCode() . '] ' . $e->getMessage());
         }
         $result = $response->getBody()->getContents();
         $data = json_decode($result, true);
@@ -230,15 +224,12 @@ class Api {
         if (is_array($songIds)) {
             $songIds = implode(',', $songIds);
         }
-        $url = 'https://api.kkbox.com/v1.1/tracks?ids='.$songIds.'&territory=HK';
-        $option = ['headers' => ['authorization' => 'Bearer '. $this->_getToken()]];
-        if ($this->_proxy) {
-            $option['proxy'] = $this->_proxy;
-        }
+        $url = 'https://api.kkbox.com/v1.1/tracks?ids=' . $songIds . '&territory=HK';
+        $option = ['headers' => ['authorization' => 'Bearer ' . $this->_getToken()]];
         try {
             $response = $this->_client->get($url, $option);
         } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return $this->_error('get token failed, [' . $e->getCode().'] '. $e->getMessage());
+            return $this->_error('get token failed, [' . $e->getCode() . '] ' . $e->getMessage());
         }
         $result = $response->getBody()->getContents();
         $data = json_decode($result, true);
@@ -253,14 +244,11 @@ class Api {
     public function getCharts()
     {
         $url = 'https://api.kkbox.com/v1.1/charts?territory=HK';
-        $option = ['headers' => ['authorization' => 'Bearer '. $this->_getToken()]];
-        if ($this->_proxy) {
-            $option['proxy'] = $this->_proxy;
-        }
+        $option = ['headers' => ['authorization' => 'Bearer ' . $this->_getToken()]];
         try {
             $response = $this->_client->get($url, $option);
         } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return $this->_error('get token failed, [' . $e->getCode().'] '. $e->getMessage());
+            return $this->_error('get token failed, [' . $e->getCode() . '] ' . $e->getMessage());
         }
         $result = $response->getBody()->getContents();
         $data = json_decode($result, true);
@@ -275,21 +263,17 @@ class Api {
      */
     public function getChartSongs($chartId)
     {
-        $url = 'https://api.kkbox.com/v1.1/charts/'.$chartId.'/tracks?territory=HK&limit=500';
-        $option = ['headers' => ['authorization' => 'Bearer '. $this->_getToken()]];
-        if ($this->_proxy) {
-            $option['proxy'] = $this->_proxy;
-        }
+        $url = 'https://api.kkbox.com/v1.1/charts/' . $chartId . '/tracks?territory=HK&limit=500';
+        $option = ['headers' => ['authorization' => 'Bearer ' . $this->_getToken()]];
         try {
             $response = $this->_client->get($url, $option);
         } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return $this->_error('get token failed, [' . $e->getCode().'] '. $e->getMessage());
+            return $this->_error('get token failed, [' . $e->getCode() . '] ' . $e->getMessage());
         }
         $result = $response->getBody()->getContents();
         $data = json_decode($result, true);
         unset($data['paging']);
         return $this->_success($data);
-        
     }
 
     /**
@@ -341,6 +325,4 @@ class Api {
     {
         return ['ret' => false, 'data' => null, 'msg' => $msg];
     }
-
-
 }

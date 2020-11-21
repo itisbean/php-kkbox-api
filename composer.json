@@ -4,16 +4,16 @@
     "type": "library",
     "keywords": ["kkbox music", "kkbox", "open api"],
     "license": "MIT",
-    "authors": [
-        {
-            "name": "doun",
-            "email": "iamdonydou@gmail.com"
-        }
-    ],
+    "authors": [{
+        "name": "doun",
+        "email": "iamdonydou@gmail.com"
+    }],
     "require": {
         "php": ">=5.6.0",
         "guzzlehttp/guzzle": "^6.2",
-        "catfan/medoo": "^1.7"
+        "catfan/medoo": "^1.7",
+        "symfony/dom-crawler": "^5.1",
+        "symfony/css-selector": "^5.1"
     },
     "autoload": {
         "psr-4": {
